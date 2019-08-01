@@ -277,6 +277,8 @@ impl TargetsMetadata {
 pub struct PublicKey {
     keytype: crypto::KeyType,
     scheme: crypto::SignatureScheme,
+    #[serde(skip_serializing_if="Option::is_none")]
+    keyid_hash_algorithms: Option<Vec<String>>,
     keyval: PublicKeyValue,
 }
 
@@ -284,9 +286,15 @@ impl PublicKey {
     pub fn new(
         keytype: crypto::KeyType,
         scheme: crypto::SignatureScheme,
+        keyid_hash_algorithms: Option<Vec<String>>,
         public_key: String,
     ) -> Self {
-        PublicKey { keytype, scheme, keyval: PublicKeyValue { public: public_key } }
+        PublicKey {
+            keytype,
+            scheme,
+            keyid_hash_algorithms,
+            keyval: PublicKeyValue { public: public_key },
+        }
     }
 
     pub fn public_key(&self) -> &str {
@@ -299,6 +307,10 @@ impl PublicKey {
 
     pub fn keytype(&self) -> &crypto::KeyType {
         &self.keytype
+    }
+
+    pub fn keyid_hash_algorithms(&self) -> &Option<Vec<String>> {
+        &self.keyid_hash_algorithms
     }
 }
 

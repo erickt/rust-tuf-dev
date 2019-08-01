@@ -113,6 +113,7 @@ pub fn calculate_hashes<R: Read>(
 fn shim_public_key(
     key_type: &KeyType,
     signature_scheme: &SignatureScheme,
+    keyid_hash_algorithms: &Option<Vec<String>>,
     public_key: &[u8],
 ) -> ::std::result::Result<shims::PublicKey, derp::Error> {
     let key = match key_type {
@@ -123,17 +124,18 @@ fn shim_public_key(
         }
     };
 
-    Ok(shims::PublicKey::new(key_type.clone(), signature_scheme.clone(), key))
+    Ok(shims::PublicKey::new(key_type.clone(), signature_scheme.clone(), keyid_hash_algorithms.clone(), key))
 }
 
 fn calculate_key_id(
     key_type: &KeyType,
     signature_scheme: &SignatureScheme,
+    keyid_hash_algorithms: &Option<Vec<String>>,
     public_key: &[u8],
 ) -> Result<KeyId> {
     use crate::interchange::{DataInterchange, Json};
 
-    let public_key = shim_public_key(key_type, signature_scheme, public_key)?;
+    let public_key = shim_public_key(key_type, signature_scheme, keyid_hash_algorithms, public_key)?;
     let public_key = Json::canonicalize(&Json::serialize(&public_key)?)?;
     let mut context = digest::Context::new(&SHA256);
     context.update(&public_key);
@@ -394,9 +396,11 @@ impl PrivateKey {
         let key = Ed25519KeyPair::from_pkcs8(der_key)
             .map_err(|_| Error::Encoding("Could not parse key as PKCS#8v2".into()))?;
 
+        let keyid_hash_algorithms = Some(vec!["sha256".to_string(), "sha512".to_string()]);
         let public = PublicKey::new(
             KeyType::Ed25519,
             SignatureScheme::Ed25519,
+            keyid_hash_algorithms,
             key.public_key().as_ref().to_vec(),
         )?;
         let private = PrivateKeyType::Ed25519(key);
@@ -423,7 +427,8 @@ impl PrivateKey {
 
         let pub_key = extract_rsa_pub_from_pkcs8(der_key)?;
 
-        let public = PublicKey::new(KeyType::Rsa, scheme, pub_key)?;
+        let keyid_hash_algorithms = Some(vec!["sha256".to_string(), "sha512".to_string()]);
+        let public = PublicKey::new(KeyType::Rsa, scheme, keyid_hash_algorithms, pub_key)?;
         let private = PrivateKeyType::Rsa(Arc::new(key));
 
         Ok(PrivateKey { private, public })
@@ -506,20 +511,29 @@ pub struct PublicKey {
     typ: KeyType,
     key_id: KeyId,
     scheme: SignatureScheme,
+    keyid_hash_algorithms: Option<Vec<String>>,
     value: PublicKeyValue,
 }
 
 impl PublicKey {
-    fn new(typ: KeyType, scheme: SignatureScheme, value: Vec<u8>) -> Result<Self> {
-        let key_id = calculate_key_id(&typ, &scheme, &value)?;
+    fn new(typ: KeyType, scheme: SignatureScheme, keyid_hash_algorithms: Option<Vec<String>>, value: Vec<u8>) -> Result<Self> {
+        let key_id = calculate_key_id(&typ, &scheme, &keyid_hash_algorithms, &value)?;
         let value = PublicKeyValue(value);
-        Ok(PublicKey { typ, key_id, scheme, value })
+        Ok(PublicKey { typ, key_id, scheme, keyid_hash_algorithms, value })
     }
 
     /// Parse DER bytes as an SPKI key.
     ///
     /// See the documentation on `KeyValue` for more information on SPKI.
     pub fn from_spki(der_bytes: &[u8], scheme: SignatureScheme) -> Result<Self> {
+        let keyid_hash_algorithms = Some(vec!["sha256".to_string(), "sha512".to_string()]);
+        Self::from_spki_with_keyid_hash_algorithms(der_bytes, scheme, keyid_hash_algorithms)
+    }
+
+    /// Parse DER bytes as an SPKI key and the `keyid_hash_algorithms`.
+    ///
+    /// See the documentation on `KeyValue` for more information on SPKI.
+    fn from_spki_with_keyid_hash_algorithms(der_bytes: &[u8], scheme: SignatureScheme, keyid_hash_algorithms: Option<Vec<String>>) -> Result<Self> {
         let input = Input::from(der_bytes);
 
         let (typ, value) = input.read_all(derp::Error::Read, |input| {
@@ -539,7 +553,7 @@ impl PublicKey {
             })
         })?;
 
-        Self::new(typ, scheme, value)
+        Self::new(typ, scheme, keyid_hash_algorithms, value)
     }
 
     fn from_ed25519(bytes: Vec<u8>) -> Result<Self> {
@@ -547,7 +561,9 @@ impl PublicKey {
             return Err(Error::IllegalArgument("ed25519 keys must be 32 bytes long".into()));
         }
 
-        Self::new(KeyType::Ed25519, SignatureScheme::Ed25519, bytes)
+        let keyid_hash_algorithms = Some(vec!["sha256".to_string(), "sha512".to_string()]);
+
+        Self::new(KeyType::Ed25519, SignatureScheme::Ed25519, keyid_hash_algorithms, bytes)
     }
 
     /// Write the public key as SPKI DER bytes.
@@ -628,7 +644,7 @@ impl Serialize for PublicKey {
     where
         S: Serializer,
     {
-        let key = shim_public_key(&self.typ, &self.scheme, &self.value.0)
+        let key = shim_public_key(&self.typ, &self.scheme, &self.keyid_hash_algorithms, &self.value.0)
             .map_err(|e| SerializeError::custom(format!("Couldn't write key as SPKI: {:?}", e)))?;
         key.serialize(ser)
     }
@@ -936,6 +952,7 @@ mod test {
         let jsn = json!({
             "keytype": "rsa",
             "scheme": "rsassa-pss-sha256",
+            "keyid_hash_algorithms": ["sha256", "sha512"],
             "keyval": {
                 "public": BASE64URL.encode(der),
             }
@@ -957,6 +974,7 @@ mod test {
         let jsn = json!({
             "keytype": "ed25519",
             "scheme": "ed25519",
+            "keyid_hash_algorithms": ["sha256", "sha512"],
             "keyval": {
                 "public": HEXLOWER.encode(pub_key.as_bytes()),
             }
@@ -973,7 +991,7 @@ mod test {
         let sig = key.sign(msg).unwrap();
         let encoded = serde_json::to_value(&sig).unwrap();
         let jsn = json!({
-            "keyid": "e0294a3f17cc8563c3ed5fceb3bd8d3f6bfeeaca499b5c9572729ae015566554",
+            "keyid": "a9f3ebc9b138762563a9c27b6edd439959e559709babd123e8d449ba2c18c61a",
             "sig": "fe4d13b2a73c033a1de7f5107b205fc7ba0e1566cb95b92349cae6aa453\
                 8956013bfe0f7bf977cb072bb65e8782b5f33a0573fe78816299a017ca5ba55\
                 9e390c",
