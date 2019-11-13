@@ -979,8 +979,7 @@ mod test {
                     .await
                     .unwrap(),
             );
-
-      });
+        });
     }
 
     #[test]
@@ -1085,7 +1084,7 @@ mod test {
             // Initialize with root metadata version 2.
             let key_ids = [
                 KEYS[0].public().key_id().clone(),
-                KEYS[1].public().key_id().clone()
+                KEYS[1].public().key_id().clone(),
             ];
             let mut client = Client::with_root_pinned(
                 &key_ids,
@@ -1115,6 +1114,6 @@ mod test {
                     .await
                     .unwrap(),
             );
-      });
+        });
     }
 }
