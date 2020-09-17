@@ -285,16 +285,14 @@ impl<D: DataInterchange> Tuf<D> {
             //     than or equal to the version number of the new timestamp metadata file. If the
             //     new timestamp metadata file is older than the trusted timestamp metadata file,
             //     discard it, abort the update cycle, and report the potential rollback attack.
-
-            let trusted_timestamp_version = self.trusted_timestamp_version();
-
-            if new_timestamp.version() < trusted_timestamp_version {
+            
+            if new_timestamp.version() < self.trusted_timestamp_version() {
                 return Err(Error::VerificationFailure(format!(
-                    "Attempted to roll back timestamp metadata at version {} to {}.",
-                    trusted_timestamp_version,
-                    new_timestamp.version()
+                    "Attempted to roll back timestamp metadata at version {} to {}",
+                    self.trusted_timestamp_version(),
+                    new_timestamp.version(),
                 )));
-            } else if new_timestamp.version() == trusted_timestamp_version {
+            } else if new_timestamp.version() == self.trusted_timestamp_version() {
                 return Ok(None);
             }
 
@@ -305,7 +303,6 @@ impl<D: DataInterchange> Tuf<D> {
             //     metadata file, if any, MUST be less than or equal to its version number in the
             //     new timestamp metadata file. If not, discard the new timestamp metadadata file,
             //     abort the update cycle, and report the failure.
-
             if new_timestamp.snapshot().version() < self.trusted_snapshot_version() {
                 return Err(Error::VerificationFailure(format!(
                     "Attempted to roll back timestamp's snapshot metadata at version {} to {}",
@@ -314,11 +311,16 @@ impl<D: DataInterchange> Tuf<D> {
                 )));
             }
 
-            /////////////////////////////////////////
-            // FIXME(#297): forgetting the trusted snapshot here is not part of the spec. Do we need to
-            // do it?
-
-            if self.trusted_snapshot_version() != new_timestamp.snapshot().version() {
+            if new_timestamp.snapshot().version() < self.trusted_snapshot_version() {
+                return Err(Error::VerificationFailure(format!(
+                    "Attempted to roll back timestamp snapshot metadata at version {} to {}",
+                    self.trusted_snapshot_version(),
+                    new_timestamp.snapshot().version(),
+                )));
+            } else if new_timestamp.snapshot().version() != self.trusted_snapshot_version() {
+                /////////////////////////////////////////
+                // FIXME(#297): forgetting the trusted snapshot here is not part of the spec. Do we
+                // need to do it?
                 self.trusted_snapshot = None;
             }
 
@@ -415,12 +417,14 @@ impl<D: DataInterchange> Tuf<D> {
             //     new snapshot metadata file is older than the trusted metadata file, discard it,
             //     abort the update cycle, and report the potential rollback attack.
 
-            if new_snapshot.version() < trusted_snapshot_version {
+            if new_snapshot.version() < self.trusted_snapshot_version() {
                 return Err(Error::VerificationFailure(format!(
-                    "Attempted to roll back snapshot metadata at version {} to {}",
-                    trusted_snapshot_version,
-                    new_snapshot.version(),
+                    "Attempted to roll back snapshot metadata at version {} to {}.",
+                    self.trusted_snapshot_version(),
+                    new_snapshot.version()
                 )));
+            } else if new_snapshot.version() == self.trusted_snapshot_version() {
+                return Ok(false);
             }
 
             /////////////////////////////////////////
@@ -478,6 +482,7 @@ impl<D: DataInterchange> Tuf<D> {
 
             /////////////////////////////////////////
             // FIXME(#297): Verify why we don't check expiration here:
+            
             // Note: this doesn't check the expiration because we need to be able to update it
             // regardless so we can prevent rollback attacks againsts targets/delegations.
 
@@ -545,30 +550,6 @@ impl<D: DataInterchange> Tuf<D> {
             let trusted_root = self.trusted_root_unexpired()?;
             let trusted_snapshot = self.trusted_snapshot_unexpired()?;
 
-            // FIXME(#295): TUF-1.0.5 §5.3.3.2 says this check should be done when updating the
-            // snapshot, not here.
-            let trusted_targets_description = trusted_snapshot
-                .meta()
-                .get(&MetadataPath::from_role(&Role::Targets))
-                .ok_or_else(|| {
-                    Error::VerificationFailure(
-                        "Snapshot metadata had no description of the targets metadata".into(),
-                    )
-                })?;
-
-            let trusted_targets_version = self.trusted_targets_version();
-
-            if trusted_targets_description.version() < trusted_targets_version {
-                return Err(Error::VerificationFailure(format!(
-                    "Attempted to roll back targets metadata at version {} to {}.",
-                    trusted_targets_version,
-                    trusted_targets_description.version()
-                )));
-            } else if trusted_targets_description.version() == trusted_targets_version {
-                return Ok(false);
-            }
-
-            /////////////////////////////////////////
             // TUF-1.0.5 §5.4.1:
             //
             //     Check against snapshot metadata. The hashes and version number of the new
@@ -600,16 +581,23 @@ impl<D: DataInterchange> Tuf<D> {
                 trusted_root.targets_keys(),
             )?;
 
-            /////////////////////////////////////////
-            // FIXME(https://github.com/theupdateframework/specification/pull/112): Actually check
-            // the version.
+            // TUF-1.0.5 §5.4.1: Actually check the version.
+            let trusted_snapshot_targets_version = trusted_snapshot
+                .meta()
+                .get(&MetadataPath::from_role(&Role::Targets))
+                .ok_or_else(|| {
+                    Error::VerificationFailure(
+                        "Snapshot metadata had no description of the targets metadata".into(),
+                    )
+                })?
+                .version();
 
-            if new_targets.version() != trusted_targets_description.version() {
+            if new_targets.version() != trusted_snapshot_targets_version {
                 return Err(Error::VerificationFailure(format!(
-                    "The timestamp metadata reported that the targets metadata should be at \
+                    "The snapshot metadata reported that the targets metadata should be at \
                      version {} but version {} was found instead.",
-                    trusted_targets_description.version(),
-                    new_targets.version()
+                    trusted_snapshot_targets_version,
+                    new_targets.version(),
                 )));
             }
 
@@ -621,6 +609,7 @@ impl<D: DataInterchange> Tuf<D> {
             //     metadata file becomes the trusted targets metadata file. If the new targets
             //     metadata file is expired, discard it, abort the update cycle, and report the
             //     potential freeze attack.
+
             if new_targets.expires() <= &Utc::now() {
                 return Err(Error::ExpiredMetadata(Role::Snapshot));
             }

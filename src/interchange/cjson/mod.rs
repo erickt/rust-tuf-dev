@@ -316,7 +316,10 @@ impl DataInterchange for Json {
     where
         T: DeserializeOwned,
     {
-        Ok(serde_json::from_slice(slice)?)
+        let raw_data: Self::RawData = serde_json::from_slice(slice)?;
+        let canonical_bytes = Self::canonicalize(&raw_data)?;
+        let canonical_data: Self::RawData = serde_json::from_slice(&canonical_bytes)?;
+        Ok(Self::deserialize(&canonical_data)?)
     }
 }
 

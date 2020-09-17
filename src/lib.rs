@@ -101,7 +101,8 @@
 //! In a community repository, these two keys need to be kept online and will be used to sign new
 //! metadata on every update.
 
-#![deny(missing_docs)]
+#![allow(warnings)]
+//#![deny(missing_docs)]
 #![allow(
     clippy::collapsible_if,
     clippy::implicit_hasher,
