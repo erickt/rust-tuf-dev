@@ -490,6 +490,18 @@ where
         for i in (self.tuf.trusted_root().version() + 1)..latest_version {
             let version = MetadataVersion::Number(i);
 
+            /////////////////////////////////////////
+            // TUF-1.0.5 §5.1.2:
+            //
+            //     Try downloading version N+1 of the root metadata file, up to some W number of
+            //     bytes (because the size is unknown). The value for W is set by the authors of
+            //     the application using TUF. For example, W may be tens of kilobytes. The filename
+            //     used to download the root metadata file is of the fixed form
+            //     VERSION_NUMBER.FILENAME.EXT (e.g., 42.root.json). If this file is not available,
+            //     or we have downloaded more than Y number of root metadata files (because the
+            //     exact number is as yet unknown), then go to step 1.8. The value for Y is set by
+            //     the authors of the application using TUF. For example, Y may be 2^10.
+
             let raw_signed_root = self
                 .remote
                 .fetch_metadata(&root_path, &version, self.config.max_root_length, None)
@@ -500,8 +512,16 @@ where
                 return Err(Error::Programming(err_msg.into()));
             }
 
+            // FIXME(https://github.com/theupdateframework/specification/pull/116):
+            // Technically TUF-1.0.5 is vague when we are supposed to persist the root metadata. We
+            // do it after verification to avoid persisting potentially malicious metadata.
             self.store_metadata(&root_path, &version, &raw_signed_root)
                 .await;
+
+            /////////////////////////////////////////
+            // TUF-1.0.5 §5.1.7:
+            //
+            //     Repeat steps 1.1 to 1.7.
         }
 
         if !self.tuf.update_root(&raw_latest_root)? {
@@ -511,15 +531,38 @@ where
 
         let latest_version = MetadataVersion::Number(latest_version);
 
+        // FIXME(https://github.com/theupdateframework/specification/pull/116):
+        // Technically TUF-1.0.5 is vague when we are supposed to persist the root metadata. We
+        // do it after verification to avoid persisting potentially malicious metadata.
         self.store_metadata(&root_path, &latest_version, &raw_latest_root)
             .await;
         self.store_metadata(&root_path, &MetadataVersion::None, &raw_latest_root)
             .await;
 
+        /////////////////////////////////////////
+        // TUF-1.0.5 §5.1.8:
+        //
+        //     Check for a freeze attack. The latest known time should be lower than the
+        //     expiration timestamp in the trusted root metadata file (version N). If the
+        //     trusted root metadata file has expired, abort the update cycle, report the
+        //     potential freeze attack. On the next update cycle, begin at step 0 and version N
+        //     of the root metadata file.
+
+        // FIXME: we should move this logic into TUF to make it easier to review we implement the
+        // TUF spec.
+
         if self.tuf.trusted_root().expires() <= &Utc::now() {
             error!("Root metadata expired, potential freeze attack");
             return Err(Error::ExpiredMetadata(Role::Root));
         }
+
+        /////////////////////////////////////////
+        // TUF-1.0.5 §5.1.10:
+        //
+        //     Set whether consistent snapshots are used as per the trusted root metadata file (see
+        //     Section 4.3).
+
+        // FIXME: validate we are properly setting the consistent snapshot.
 
         Ok(true)
     }
@@ -527,6 +570,15 @@ where
     /// Returns `true` if an update occurred and `false` otherwise.
     async fn update_timestamp(&mut self) -> Result<bool> {
         let timestamp_path = MetadataPath::from_role(&Role::Timestamp);
+
+        /////////////////////////////////////////
+        // TUF-1.0.5 §5.2.1:
+        //
+        //     Download the timestamp metadata file, up to X number of bytes (because the size is
+        //     unknown). The value for X is set by the authors of the application using TUF. For
+        //     example, X may be tens of kilobytes. The filename used to download the timestamp
+        //     metadata file is of the fixed form FILENAME.EXT (e.g., timestamp.json). The client
+        //     MUST write the file to non-volatile storage as FILENAME.EXT.
 
         let raw_signed_timestamp = self
             .remote
@@ -539,7 +591,14 @@ where
             .await?;
 
         if let Some(updated_timestamp) = self.tuf.update_timestamp(&raw_signed_timestamp)? {
+            // FIXME(#297) We're diverging from the spec here. TUF-1.0.5 §5.2 states to persist
+            // unversioned metadata, rather than versioned metadata.
             let latest_version = MetadataVersion::Number(updated_timestamp.version());
+
+            // FIXME(https://github.com/theupdateframework/specification/pull/116): Technically
+            // TUF-1.0.5 wants us to persist metadata before verification, but we intentionally do
+            // it after verification to avoid persisting potentially malicious metadata.
+
             self.store_metadata(&timestamp_path, &latest_version, &raw_signed_timestamp)
                 .await;
 
@@ -592,6 +651,13 @@ where
             .await?;
 
         if self.tuf.update_snapshot(&raw_signed_snapshot)? {
+            // FIXME(#297) We're diverging from the spec here. TUF-1.0.5 §5.3 states to persist
+            // unversioned metadata, rather than versioned metadata.
+
+            // FIXME(https://github.com/theupdateframework/specification/pull/116): Technically
+            // TUF-1.0.5 wants us to persist metadata before verification, but we intentionally do
+            // it after verification to avoid persisting potentially malicious metadata.
+
             self.store_metadata(&snapshot_path, &version, &raw_signed_snapshot)
                 .await;
 
@@ -644,6 +710,13 @@ where
             .await?;
 
         if self.tuf.update_targets(&raw_signed_targets)? {
+            // FIXME(#297) We're diverging from the spec here. TUF-1.0.5 §5.4 states to persist
+            // unversioned metadata, rather than versioned metadata.
+
+            // FIXME(https://github.com/theupdateframework/specification/pull/116): Technically
+            // TUF-1.0.5 wants us to persist metadata before verification, but we intentionally do
+            // it after verification to avoid persisting potentially malicious metadata.
+
             self.store_metadata(&targets_path, &version, &raw_signed_targets)
                 .await;
 
@@ -823,6 +896,10 @@ where
                 .update_delegation(&targets_role, delegation.role(), &raw_signed_meta)
             {
                 Ok(_) => {
+                    // FIXME(https://github.com/theupdateframework/specification/pull/116):
+                    // Technically TUF-1.0.5 wants us to persist metadata before verification, but
+                    // we intentionally do it after verification to avoid persisting potentially
+                    // malicious metadata.
                     match self
                         .local
                         .store_metadata(delegation.role(), &MetadataVersion::None, &raw_signed_meta)
