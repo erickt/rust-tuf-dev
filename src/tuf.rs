@@ -434,7 +434,38 @@ impl<D: DataInterchange> Tuf<D> {
             //     metadata file. If any of these conditions are not met, discard the new snapshot
             //     metadadata file, abort the update cycle, and report the failure.
 
-            // FIXME(#295): Implement this section.
+            // Make sure the new snapshot role contains a targets role.
+            if new_snapshot
+                .meta()
+                .get(&MetadataPath::from_role(&Role::Targets))
+                .is_none()
+            {
+                return Err(Error::VerificationFailure(
+                    "Snapshot metadata has no description for targets role".into(),
+                ));
+            }
+
+            // For each role in the trusted snapshot, make sure an entry exists in the new
+            // delegation, make sure
+            if let Some(ref trusted_snapshot) = self.trusted_snapshot {
+                for (path, trusted_role) in trusted_snapshot.meta() {
+                    let new_role = new_snapshot.meta().get(path).ok_or_else(|| {
+                        Error::VerificationFailure(format!(
+                            "Snapshot metadata has no description for delegation {}.",
+                            path
+                        ))
+                    })?;
+
+                    if new_role.version() < trusted_role.version() {
+                        return Err(Error::VerificationFailure(format!(
+                            "Attempted to roll back delegation metadata {} at version {} to {}.",
+                            path,
+                            trusted_role.version(),
+                            new_role.version()
+                        )));
+                    }
+                }
+            }
 
             /////////////////////////////////////////
             // TUF-1.0.5 §5.3.4:
