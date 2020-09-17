@@ -306,7 +306,13 @@ impl<D: DataInterchange> Tuf<D> {
             //     new timestamp metadata file. If not, discard the new timestamp metadadata file,
             //     abort the update cycle, and report the failure.
 
-            // FIXME(#294): Implement this section.
+            if new_timestamp.snapshot().version() < self.trusted_snapshot_version() {
+                return Err(Error::VerificationFailure(format!(
+                    "Attempted to roll back timestamp's snapshot metadata at version {} to {}",
+                    self.trusted_snapshot_version(),
+                    new_timestamp.snapshot().version(),
+                )));
+            }
 
             /////////////////////////////////////////
             // FIXME(#297): forgetting the trusted snapshot here is not part of the spec. Do we need to
@@ -349,13 +355,8 @@ impl<D: DataInterchange> Tuf<D> {
             let trusted_timestamp = self.trusted_timestamp_unexpired()?;
             let trusted_snapshot_version = self.trusted_snapshot_version();
 
-            if trusted_timestamp.snapshot().version() < trusted_snapshot_version {
-                return Err(Error::VerificationFailure(format!(
-                    "Attempted to roll back snapshot metadata at version {} to {}.",
-                    trusted_snapshot_version,
-                    trusted_timestamp.snapshot().version()
-                )));
-            } else if trusted_timestamp.snapshot().version() == trusted_snapshot_version {
+            // FIXME Exiting early here is not part of the spec. Should we do it?
+            if trusted_timestamp.snapshot().version() == trusted_snapshot_version {
                 return Ok(false);
             }
 
