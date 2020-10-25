@@ -268,7 +268,7 @@ mod test {
             let data: &[u8] = b"like tears in the rain";
             let target_description =
                 TargetDescription::from_reader(data, &[HashAlgorithm::Sha256]).unwrap();
-            let path = TargetPath::new("foo/bar/baz".into()).unwrap();
+            let path = TargetPath::new("foo/bar/baz").unwrap();
             repo.store_target(&mut &*data, &path).await.unwrap();
             assert!(temp_dir
                 .path()

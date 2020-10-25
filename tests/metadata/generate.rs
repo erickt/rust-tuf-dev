@@ -150,7 +150,7 @@ async fn add_target(
         let target_data = step_str.as_bytes();
         targets_builder = targets_builder
             .insert_target_from_reader(
-                VirtualTargetPath::new(i.to_string().into()).unwrap(),
+                VirtualTargetPath::new(i.to_string()).unwrap(),
                 target_data,
                 &[HashAlgorithm::Sha256],
             )
@@ -166,7 +166,7 @@ async fn add_target(
 
     let hash = targets
         .targets()
-        .get(&VirtualTargetPath::new(step.to_string().into()).unwrap())
+        .get(&VirtualTargetPath::new(step.to_string()).unwrap())
         .unwrap()
         .hashes()
         .get(&HashAlgorithm::Sha256)
@@ -177,7 +177,7 @@ async fn add_target(
     } else {
         step.to_string()
     };
-    let target_path = TargetPath::new(target_str.into()).unwrap();
+    let target_path = TargetPath::new(target_str).unwrap();
     repo.store_target(&mut &*target_data, &target_path)
         .await
         .unwrap();

@@ -1373,16 +1373,17 @@ impl VirtualTargetPath {
     ///
     /// ```
     /// # use tuf::metadata::VirtualTargetPath;
-    /// assert!(VirtualTargetPath::new("foo".into()).is_ok());
-    /// assert!(VirtualTargetPath::new("/foo".into()).is_err());
-    /// assert!(VirtualTargetPath::new("../foo".into()).is_err());
-    /// assert!(VirtualTargetPath::new("foo/..".into()).is_err());
-    /// assert!(VirtualTargetPath::new("foo/../bar".into()).is_err());
-    /// assert!(VirtualTargetPath::new("..foo".into()).is_ok());
-    /// assert!(VirtualTargetPath::new("foo/..bar".into()).is_ok());
-    /// assert!(VirtualTargetPath::new("foo/bar..".into()).is_ok());
+    /// assert!(VirtualTargetPath::new("foo").is_ok());
+    /// assert!(VirtualTargetPath::new("/foo").is_err());
+    /// assert!(VirtualTargetPath::new("../foo").is_err());
+    /// assert!(VirtualTargetPath::new("foo/..").is_err());
+    /// assert!(VirtualTargetPath::new("foo/../bar").is_err());
+    /// assert!(VirtualTargetPath::new("..foo").is_ok());
+    /// assert!(VirtualTargetPath::new("foo/..bar").is_ok());
+    /// assert!(VirtualTargetPath::new("foo/bar..").is_ok());
     /// ```
-    pub fn new(path: String) -> Result<Self> {
+    pub fn new<P: Into<String>>(path: P) -> Result<Self> {
+        let path = path.into();
         safe_path(&path)?;
         Ok(VirtualTargetPath(path))
     }
@@ -1392,7 +1393,7 @@ impl VirtualTargetPath {
     ///
     /// ```
     /// # use tuf::metadata::VirtualTargetPath;
-    /// let path = VirtualTargetPath::new("foo/bar".into()).unwrap();
+    /// let path = VirtualTargetPath::new("foo/bar").unwrap();
     /// assert_eq!(path.components(), ["foo".to_string(), "bar".to_string()]);
     /// ```
     pub fn components(&self) -> Vec<String> {
@@ -1403,18 +1404,18 @@ impl VirtualTargetPath {
     ///
     /// ```
     /// # use tuf::metadata::VirtualTargetPath;
-    /// let path1 = VirtualTargetPath::new("foo".into()).unwrap();
-    /// let path2 = VirtualTargetPath::new("foo/bar".into()).unwrap();
+    /// let path1 = VirtualTargetPath::new("foo").unwrap();
+    /// let path2 = VirtualTargetPath::new("foo/bar").unwrap();
     /// assert!(!path2.is_child(&path1));
     ///
-    /// let path1 = VirtualTargetPath::new("foo/".into()).unwrap();
-    /// let path2 = VirtualTargetPath::new("foo/bar".into()).unwrap();
+    /// let path1 = VirtualTargetPath::new("foo/").unwrap();
+    /// let path2 = VirtualTargetPath::new("foo/bar").unwrap();
     /// assert!(path2.is_child(&path1));
     ///
-    /// let path2 = VirtualTargetPath::new("foo/bar/baz".into()).unwrap();
+    /// let path2 = VirtualTargetPath::new("foo/bar/baz").unwrap();
     /// assert!(path2.is_child(&path1));
     ///
-    /// let path2 = VirtualTargetPath::new("wat".into()).unwrap();
+    /// let path2 = VirtualTargetPath::new("wat").unwrap();
     /// assert!(!path2.is_child(&path1))
     /// ```
     pub fn is_child(&self, parent: &Self) -> bool {
@@ -1486,7 +1487,8 @@ pub struct TargetPath(String);
 
 impl TargetPath {
     /// Create a new `TargetPath`.
-    pub fn new(path: String) -> Result<Self> {
+    pub fn new<P: Into<String>>(path: P) -> Result<Self> {
+        let path = path.into();
         safe_path(&path)?;
         Ok(TargetPath(path))
     }
@@ -1496,7 +1498,7 @@ impl TargetPath {
     ///
     /// ```
     /// # use tuf::metadata::TargetPath;
-    /// let path = TargetPath::new("foo/bar".into()).unwrap();
+    /// let path = TargetPath::new("foo/bar").unwrap();
     /// assert_eq!(path.components(), ["foo".to_string(), "bar".to_string()]);
     /// ```
     pub fn components(&self) -> Vec<String> {
@@ -2056,14 +2058,14 @@ mod test {
 
         for case in test_cases {
             let expected = case.0;
-            let target = VirtualTargetPath::new(case.1.into()).unwrap();
+            let target = VirtualTargetPath::new(case.1).unwrap();
             let parents = case
                 .2
                 .iter()
                 .map(|group| {
                     group
                         .iter()
-                        .map(|p| VirtualTargetPath::new(p.to_string()).unwrap())
+                        .map(|p| VirtualTargetPath::new(*p).unwrap())
                         .collect::<HashSet<_>>()
                 })
                 .collect::<Vec<_>>();
@@ -2593,11 +2595,11 @@ mod test {
         let targets = TargetsMetadataBuilder::new()
             .expires(Utc.ymd(2017, 1, 1).and_hms(0, 0, 0))
             .insert_target_description(
-                VirtualTargetPath::new("foo".into()).unwrap(),
+                VirtualTargetPath::new("foo").unwrap(),
                 TargetDescription::from_reader(&b"foo"[..], &[HashAlgorithm::Sha256]).unwrap(),
             )
             .insert_target_description(
-                VirtualTargetPath::new("bar".into()).unwrap(),
+                VirtualTargetPath::new("bar").unwrap(),
                 TargetDescription::from_reader_with_custom(
                     &b"foo"[..],
                     &[HashAlgorithm::Sha256],
@@ -2606,7 +2608,7 @@ mod test {
                 .unwrap(),
             )
             .insert_target_description(
-                VirtualTargetPath::new("baz".into()).unwrap(),
+                VirtualTargetPath::new("baz").unwrap(),
                 TargetDescription::from_reader_with_custom(
                     &b"foo"[..],
                     &[HashAlgorithm::Sha256],
@@ -2671,7 +2673,7 @@ mod test {
                 false,
                 1,
                 hashset!(key.key_id().clone()),
-                hashset!(VirtualTargetPath::new("baz/quux".into()).unwrap()),
+                hashset!(VirtualTargetPath::new("baz/quux").unwrap()),
             )
             .unwrap()],
         )
@@ -2855,7 +2857,7 @@ mod test {
                 false,
                 1,
                 hashset!(key.key_id().clone()),
-                hashset!(VirtualTargetPath::new("bar".into()).unwrap()),
+                hashset!(VirtualTargetPath::new("bar").unwrap()),
             )
             .unwrap()],
         )
@@ -2874,7 +2876,7 @@ mod test {
             false,
             1,
             hashset!(key.key_id().clone()),
-            hashset!(VirtualTargetPath::new("bar".into()).unwrap()),
+            hashset!(VirtualTargetPath::new("bar").unwrap()),
         )
         .unwrap();
 

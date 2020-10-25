@@ -149,7 +149,7 @@ mod test {
             let data: &[u8] = b"like tears in the rain";
             let target_description =
                 TargetDescription::from_reader(data, &[HashAlgorithm::Sha256]).unwrap();
-            let path = TargetPath::new("batty".into()).unwrap();
+            let path = TargetPath::new("batty").unwrap();
             repo.store_target(&mut &*data, &path).await.unwrap();
 
             let mut read = repo.fetch_target(&path, &target_description).await.unwrap();

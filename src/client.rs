@@ -74,8 +74,8 @@ use crate::Result;
 /// ```
 /// # use tuf::client::{PathTranslator, DefaultTranslator};
 /// # use tuf::metadata::{VirtualTargetPath, TargetPath};
-/// let path = TargetPath::new("foo".into()).unwrap();
-/// let virt = VirtualTargetPath::new("foo".into()).unwrap();
+/// let path = TargetPath::new("foo").unwrap();
+/// let virt = VirtualTargetPath::new("foo").unwrap();
 /// let translator = DefaultTranslator::new();
 /// assert_eq!(path,
 ///            translator.virtual_to_real(&translator.real_to_virtual(&path).unwrap()).unwrap());
@@ -103,11 +103,11 @@ impl DefaultTranslator {
 
 impl PathTranslator for DefaultTranslator {
     fn real_to_virtual(&self, path: &TargetPath) -> Result<VirtualTargetPath> {
-        VirtualTargetPath::new(path.value().into())
+        VirtualTargetPath::new(path.value())
     }
 
     fn virtual_to_real(&self, path: &VirtualTargetPath) -> Result<TargetPath> {
-        TargetPath::new(path.value().into())
+        TargetPath::new(path.value())
     }
 }
 
