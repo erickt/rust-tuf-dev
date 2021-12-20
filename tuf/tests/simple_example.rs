@@ -159,10 +159,10 @@ where
         let (_, value) = crypto::hash_preference(target_description.hashes())?;
         let hash_prefixed_path = target_path.with_hash_prefix(value)?;
         let _ = remote
-            .store_target(&mut &*target_file, &hash_prefixed_path)
+            .store_target(&hash_prefixed_path, &mut &*target_file)
             .await;
     } else {
-        let _ = remote.store_target(&mut &*target_file, &target_path).await;
+        let _ = remote.store_target(&target_path, &mut &*target_file).await;
     };
 
     let targets = TargetsMetadataBuilder::new()
