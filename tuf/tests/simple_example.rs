@@ -74,8 +74,8 @@ async fn run_tests<T>(config: Config<T>, consistent_snapshots: bool)
 where
     T: PathTranslator,
 {
-    let remote = EphemeralRepository::new();
-    let root_public_keys = init_server(&remote, &config, consistent_snapshots)
+    let mut remote = EphemeralRepository::new();
+    let root_public_keys = init_server(&mut remote, &config, consistent_snapshots)
         .await
         .unwrap();
     init_client(&root_public_keys, remote, config)
@@ -103,11 +103,11 @@ where
     .await?;
     let _ = client.update().await?;
     let target_path = TargetPath::new("foo-bar".into())?;
-    client.fetch_target(&target_path).await
+    client.fetch_target_to_local(&target_path).await
 }
 
 async fn init_server<'a, T>(
-    remote: &'a EphemeralRepository<Json>,
+    remote: &'a mut EphemeralRepository<Json>,
     config: &'a Config<T>,
     consistent_snapshot: bool,
 ) -> Result<Vec<PublicKey>>
