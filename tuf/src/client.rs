@@ -52,8 +52,7 @@
 //! ```
 
 use chrono::offset::Utc;
-use futures_io::{AsyncRead, AsyncWrite};
-use futures_util::io::copy;
+use futures_io::AsyncRead;
 use log::{error, warn};
 use std::collections::HashMap;
 use std::future::Future;
@@ -822,12 +821,25 @@ where
         }
     }
 
+    /// Fetch a target from the remote repo.
+    ///
+    /// It is **critical** that none of the bytes written to the `write` are used until this future
+    /// returns `Ok`, as the hash of the target is not verified until all bytes are read from the
+    /// repository.
+    pub async fn fetch_target(
+        &mut self,
+        target: &TargetPath,
+    ) -> Result<impl AsyncRead + Send + Unpin + '_> {
+        let target_description = self.fetch_target_description(target).await?;
+        fetch_target(&self.tuf, &self.remote, target, target_description).await
+    }
+
     /// Fetch a target from the remote repo and write it to the local repo.
     ///
     /// It is **critical** that none of the bytes written to the `write` are used until this future
     /// returns `Ok`, as the hash of the target is not verified until all bytes are read from the
     /// repository.
-    pub async fn fetch_target(&mut self, target: &TargetPath) -> Result<()> {
+    pub async fn fetch_target_to_local(&mut self, target: &TargetPath) -> Result<()> {
         let target_description = self.fetch_target_description(target).await?;
 
         // Since the async read we fetch from the remote repository has internal
@@ -840,25 +852,6 @@ where
 
         let mut read = fetch_target(tuf, remote, target, target_description).await?;
         local.store_target(target, &mut read).await
-    }
-
-    /// Fetch a target from the remote repo and write it to the provided writer.
-    ///
-    /// It is **critical** that none of the bytes written to the `write` are used until this future
-    /// returns `Ok`, as the hash of the target is not verified until all bytes are read from the
-    /// repository.
-    pub async fn fetch_target_to_writer<W>(
-        &mut self,
-        target: &TargetPath,
-        mut write: W,
-    ) -> Result<()>
-    where
-        W: AsyncWrite + Send + Unpin,
-    {
-        let target_description = self.fetch_target_description(target).await?;
-        let read = fetch_target(&self.tuf, &self.remote, target, target_description).await?;
-        copy(read, &mut write).await?;
-        Ok(())
     }
 
     /// Fetch a target description from the remote repo and return it.
