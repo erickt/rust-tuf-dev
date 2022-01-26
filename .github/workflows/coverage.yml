@@ -1,0 +1,21 @@
+name: coverage
+
+on: [push, pull_request]
+jobs:
+  test:
+    name: coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin
+
+      - name: Publish to coveralls
+        env:
+          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+        run: cargo tarpaulin --worspace --ciserver github-ci --coveralls $COVERALLS_REPO_TOKEN
