@@ -28,7 +28,7 @@ fn format_datetime(ts: &DateTime<Utc>) -> String {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct RootMetadata {
+pub(crate) struct RootMetadata {
     #[serde(rename = "_type")]
     typ: metadata::Role,
     spec_version: String,
@@ -41,7 +41,7 @@ pub struct RootMetadata {
 }
 
 impl RootMetadata {
-    pub fn from(meta: &metadata::RootMetadata) -> Result<Self> {
+    pub(crate) fn from(meta: &metadata::RootMetadata) -> Result<Self> {
         Ok(RootMetadata {
             typ: metadata::Role::Root,
             spec_version: SPEC_VERSION.to_string(),
@@ -62,7 +62,7 @@ impl RootMetadata {
         })
     }
 
-    pub fn try_into(self) -> Result<metadata::RootMetadata> {
+    pub(crate) fn try_into(self) -> Result<metadata::RootMetadata> {
         if self.typ != metadata::Role::Root {
             return Err(Error::Encoding(format!(
                 "Attempted to decode root metdata labeled as {:?}",
@@ -108,14 +108,14 @@ struct RoleDefinitions {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct RoleDefinition {
+pub(crate) struct RoleDefinition {
     threshold: u32,
     #[serde(rename = "keyids")]
     key_ids: Vec<crypto::KeyId>,
 }
 
 impl RoleDefinition {
-    pub fn from(role: &metadata::RoleDefinition) -> Result<Self> {
+    pub(crate) fn from(role: &metadata::RoleDefinition) -> Result<Self> {
         let key_ids = role.key_ids().to_vec();
 
         Ok(RoleDefinition {
@@ -124,7 +124,7 @@ impl RoleDefinition {
         })
     }
 
-    pub fn try_into(self) -> Result<metadata::RoleDefinition> {
+    pub(crate) fn try_into(self) -> Result<metadata::RoleDefinition> {
         let vec_len = self.key_ids.len();
         if vec_len < 1 {
             return Err(Error::Encoding(
@@ -152,7 +152,7 @@ impl RoleDefinition {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct TimestampMetadata {
+pub(crate) struct TimestampMetadata {
     #[serde(rename = "_type")]
     typ: metadata::Role,
     spec_version: String,
@@ -169,7 +169,7 @@ struct TimestampMeta {
 }
 
 impl TimestampMetadata {
-    pub fn from(metadata: &metadata::TimestampMetadata) -> Result<Self> {
+    pub(crate) fn from(metadata: &metadata::TimestampMetadata) -> Result<Self> {
         Ok(TimestampMetadata {
             typ: metadata::Role::Timestamp,
             spec_version: SPEC_VERSION.to_string(),
@@ -181,7 +181,7 @@ impl TimestampMetadata {
         })
     }
 
-    pub fn try_into(self) -> Result<metadata::TimestampMetadata> {
+    pub(crate) fn try_into(self) -> Result<metadata::TimestampMetadata> {
         if self.typ != metadata::Role::Timestamp {
             return Err(Error::Encoding(format!(
                 "Attempted to decode timestamp metdata labeled as {:?}",
@@ -205,7 +205,7 @@ impl TimestampMetadata {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct SnapshotMetadata {
+pub(crate) struct SnapshotMetadata {
     #[serde(rename = "_type")]
     typ: metadata::Role,
     spec_version: String,
@@ -216,7 +216,7 @@ pub struct SnapshotMetadata {
 }
 
 impl SnapshotMetadata {
-    pub fn from(metadata: &metadata::SnapshotMetadata) -> Result<Self> {
+    pub(crate) fn from(metadata: &metadata::SnapshotMetadata) -> Result<Self> {
         Ok(SnapshotMetadata {
             typ: metadata::Role::Snapshot,
             spec_version: SPEC_VERSION.to_string(),
@@ -230,7 +230,7 @@ impl SnapshotMetadata {
         })
     }
 
-    pub fn try_into(self) -> Result<metadata::SnapshotMetadata> {
+    pub(crate) fn try_into(self) -> Result<metadata::SnapshotMetadata> {
         if self.typ != metadata::Role::Snapshot {
             return Err(Error::Encoding(format!(
                 "Attempted to decode snapshot metdata labeled as {:?}",
@@ -269,7 +269,7 @@ impl SnapshotMetadata {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct TargetsMetadata {
+pub(crate) struct TargetsMetadata {
     #[serde(rename = "_type")]
     typ: metadata::Role,
     spec_version: String,
@@ -281,7 +281,7 @@ pub struct TargetsMetadata {
 }
 
 impl TargetsMetadata {
-    pub fn from(metadata: &metadata::TargetsMetadata) -> Result<Self> {
+    pub(crate) fn from(metadata: &metadata::TargetsMetadata) -> Result<Self> {
         Ok(TargetsMetadata {
             typ: metadata::Role::Targets,
             spec_version: SPEC_VERSION.to_string(),
@@ -296,7 +296,7 @@ impl TargetsMetadata {
         })
     }
 
-    pub fn try_into(self) -> Result<metadata::TargetsMetadata> {
+    pub(crate) fn try_into(self) -> Result<metadata::TargetsMetadata> {
         if self.typ != metadata::Role::Targets {
             return Err(Error::Encoding(format!(
                 "Attempted to decode targets metdata labeled as {:?}",
@@ -321,7 +321,7 @@ impl TargetsMetadata {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct PublicKey {
+pub(crate) struct PublicKey {
     keytype: crypto::KeyType,
     scheme: crypto::SignatureScheme,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -330,7 +330,7 @@ pub struct PublicKey {
 }
 
 impl PublicKey {
-    pub fn new(
+    pub(crate) fn new(
         keytype: crypto::KeyType,
         scheme: crypto::SignatureScheme,
         keyid_hash_algorithms: Option<Vec<String>>,
@@ -344,30 +344,30 @@ impl PublicKey {
         }
     }
 
-    pub fn public_key(&self) -> &str {
+    pub(crate) fn public_key(&self) -> &str {
         &self.keyval.public
     }
 
-    pub fn scheme(&self) -> &crypto::SignatureScheme {
+    pub(crate) fn scheme(&self) -> &crypto::SignatureScheme {
         &self.scheme
     }
 
-    pub fn keytype(&self) -> &crypto::KeyType {
+    pub(crate) fn keytype(&self) -> &crypto::KeyType {
         &self.keytype
     }
 
-    pub fn keyid_hash_algorithms(&self) -> &Option<Vec<String>> {
+    pub(crate) fn keyid_hash_algorithms(&self) -> &Option<Vec<String>> {
         &self.keyid_hash_algorithms
     }
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct PublicKeyValue {
+pub(crate) struct PublicKeyValue {
     public: String,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Delegation {
+pub(crate) struct Delegation {
     role: metadata::MetadataPath,
     terminating: bool,
     threshold: u32,
@@ -377,7 +377,7 @@ pub struct Delegation {
 }
 
 impl Delegation {
-    pub fn from(meta: &metadata::Delegation) -> Self {
+    pub(crate) fn from(meta: &metadata::Delegation) -> Self {
         let mut paths = meta
             .paths()
             .iter()
@@ -400,7 +400,7 @@ impl Delegation {
         }
     }
 
-    pub fn try_into(self) -> Result<metadata::Delegation> {
+    pub(crate) fn try_into(self) -> Result<metadata::Delegation> {
         let paths = self
             .paths
             .iter()
@@ -424,14 +424,14 @@ impl Delegation {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Delegations {
+pub(crate) struct Delegations {
     #[serde(deserialize_with = "deserialize_reject_duplicates::deserialize")]
     keys: BTreeMap<crypto::KeyId, crypto::PublicKey>,
     roles: Vec<metadata::Delegation>,
 }
 
 impl Delegations {
-    pub fn from(delegations: &metadata::Delegations) -> Delegations {
+    pub(crate) fn from(delegations: &metadata::Delegations) -> Delegations {
         Delegations {
             keys: delegations
                 .keys()
@@ -442,13 +442,13 @@ impl Delegations {
         }
     }
 
-    pub fn try_into(self) -> Result<metadata::Delegations> {
+    pub(crate) fn try_into(self) -> Result<metadata::Delegations> {
         metadata::Delegations::new(self.keys.into_iter().collect(), self.roles)
     }
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct TargetDescription {
+pub(crate) struct TargetDescription {
     length: u64,
     hashes: BTreeMap<crypto::HashAlgorithm, crypto::HashValue>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -456,7 +456,7 @@ pub struct TargetDescription {
 }
 
 impl TargetDescription {
-    pub fn from(description: &metadata::TargetDescription) -> TargetDescription {
+    pub(crate) fn from(description: &metadata::TargetDescription) -> TargetDescription {
         TargetDescription {
             length: description.length(),
             hashes: description
@@ -472,7 +472,7 @@ impl TargetDescription {
         }
     }
 
-    pub fn try_into(self) -> Result<metadata::TargetDescription> {
+    pub(crate) fn try_into(self) -> Result<metadata::TargetDescription> {
         metadata::TargetDescription::new(
             self.length,
             self.hashes.into_iter().collect(),
@@ -482,7 +482,7 @@ impl TargetDescription {
 }
 
 #[derive(Deserialize)]
-pub struct MetadataDescription {
+pub(crate) struct MetadataDescription {
     version: u32,
     #[serde(default)]
     length: Option<usize>,
@@ -491,7 +491,7 @@ pub struct MetadataDescription {
 }
 
 impl MetadataDescription {
-    pub fn try_into(self) -> Result<metadata::MetadataDescription> {
+    pub(crate) fn try_into(self) -> Result<metadata::MetadataDescription> {
         metadata::MetadataDescription::new(
             self.version,
             self.length,
@@ -508,7 +508,7 @@ mod deserialize_reject_duplicates {
     use std::marker::PhantomData;
     use std::result::Result;
 
-    pub fn deserialize<'de, K, V, D>(deserializer: D) -> Result<BTreeMap<K, V>, D::Error>
+    pub(crate) fn deserialize<'de, K, V, D>(deserializer: D) -> Result<BTreeMap<K, V>, D::Error>
     where
         K: Deserialize<'de> + Ord,
         V: Deserialize<'de>,
